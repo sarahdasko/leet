@@ -1,4 +1,4 @@
-defmodule Leet.AlienKaraokeV1 do
+defmodule Leet.AlienKaraoke do
   @moduledoc """
   Documentation for `AlienKaraoke`.
 
