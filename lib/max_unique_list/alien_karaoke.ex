@@ -26,36 +26,23 @@ defmodule Leet.AlienKaraoke do
       [1, 2, 3, 4]
   """
   def find_best_list(song_ids) do
-    {{longest_list, _}, _} =
+    {{longest_list, _, _}, _} =
       Enum.reduce(
         song_ids,
-        {{[], 0}, {[], MapSet.new(), 0}},
+        {{[], MapSet.new(), 0}, {[], MapSet.new(), 0}},
         fn id, acc ->
           {longest, current} = acc
-          {curr_list, hash_ids, curr_size} = current
+          {_, curr_hash, _} = current
 
           new_current =
-            if MapSet.member?(hash_ids, id) do
-              new_curr = pop_back_and_prepend(curr_list, id)
-              new_hash = MapSet.new(new_curr)
-
-              {
-                new_curr,
-                new_hash,
-                MapSet.size(new_hash)
-              }
+            if MapSet.member?(curr_hash, id) do
+              pop_back_and_prepend(current, id)
             else
-              {
-                prepend(curr_list, id),
-                MapSet.put(hash_ids, id),
-                curr_size + 1
-              }
+              prepend(current, id)
             end
 
-          {curr_list, _hash_ids, curr_size} = new_current
-
           {
-            get_longest(longest, {curr_list, curr_size}),
+            get_longest(longest, new_current),
             new_current
           }
         end
@@ -68,16 +55,16 @@ defmodule Leet.AlienKaraoke do
   Get whichever list is the longest
 
   ## Examples
-      iex> Leet.AlienKaraoke.get_longest({[1,2,3], 3}, {[1,2], 2})
-      {[1,2,3], 3}
+      iex> Leet.AlienKaraoke.get_longest({[1, 2, 3], MapSet.new([1, 2, 3]), 3}, {[1, 2], MapSet.new([1, 2]), 2})
+      {[1, 2, 3], MapSet.new([1, 2, 3]), 3}
 
-      iex> Leet.AlienKaraoke.get_longest({[1,2], 2}, {[1,2,3], 3})
-      {[1,2,3], 3}
+      iex> Leet.AlienKaraoke.get_longest({[1, 2], MapSet.new([1, 2]), 2}, {[1,2,3], MapSet.new([1, 2, 3]), 3})
+      {[1, 2, 3], MapSet.new([1, 2, 3]), 3}
 
-      iex> Leet.AlienKaraoke.get_longest({[1,2], 3}, {[2,3], 2})
-      {[1,2], 3}
+      iex> Leet.AlienKaraoke.get_longest({[1, 2], MapSet.new([1, 2]), 3}, {[2, 3], MapSet.new([2, 3]), 2})
+      {[1, 2], MapSet.new([1, 2]), 3}
   """
-  def get_longest({_, list1_size} = list1, {_, list2_size} = list2) do
+  def get_longest({_, _, list1_size} = list1, {_, _, list2_size} = list2) do
     case list1_size >= list2_size do
       true -> list1
       _ -> list2
@@ -88,11 +75,11 @@ defmodule Leet.AlienKaraoke do
   Pop back to the id and prepent the id to the list
 
   ## Examples
-      iex> Leet.AlienKaraoke.pop_back_and_prepend([3,2,1], 1)
-      [1,3,2]
+      iex> Leet.AlienKaraoke.pop_back_and_prepend({[3, 2, 1], MapSet.new([1, 2, 3]), 3}, 1)
+      {[1, 3, 2], MapSet.new([1, 2, 3]), 3}
 
-      iex> Leet.AlienKaraoke.pop_back_and_prepend([3,2,1], 2)
-      [2,3]
+      iex> Leet.AlienKaraoke.pop_back_and_prepend({[3, 2, 1], MapSet.new([1, 2, 3]), 3}, 2)
+      {[2, 3], MapSet.new([2, 3]), 2}
   """
   def pop_back_and_prepend(list, id) do
     list
@@ -104,33 +91,37 @@ defmodule Leet.AlienKaraoke do
   Remove all items after and including id from the list
 
   ## Examples
-      iex> Leet.AlienKaraoke.pop_back([3,2,1], 1)
-      [3,2]
+      iex> Leet.AlienKaraoke.pop_back({[3, 2, 1], MapSet.new([1, 2, 3]), 3}, 1)
+      {[3, 2], MapSet.new([2, 3]), 2}
 
-      iex> Leet.AlienKaraoke.pop_back([3,2,1], 2)
-      [3]
+      iex> Leet.AlienKaraoke.pop_back({[3, 2, 1], MapSet.new([1, 2, 3]), 3}, 2)
+      {[3], MapSet.new([3]), 1}
   """
-  def pop_back(list, id) do
-    list
-    |> Enum.reverse()
-    |> Enum.drop_while(&(&1 != id))
-    |> case do
-      [] -> list
-      [_ | rest] -> Enum.reverse(rest)
-    end
+  def pop_back({list, hash, len}, id) do
+    {keep, rest} = Enum.split_while(list, &(&1 != id))
+
+    {new_hash, new_len} =
+      Enum.reduce(rest, {hash, len}, fn x, {h, l} ->
+        {
+          MapSet.delete(h, x),
+          l - 1
+        }
+      end)
+
+    {keep, new_hash, new_len}
   end
 
   @doc """
   Append the id to the list
 
   ## Examples
-      iex> Leet.AlienKaraoke.prepend([2, 1], 3)
-      [3,2,1]
+      iex> Leet.AlienKaraoke.prepend({[2, 1], MapSet.new([2, 1]), 2}, 3)
+      {[3, 2, 1], MapSet.new([1, 2, 3]), 3}
 
-      iex> Leet.AlienKaraoke.prepend([], 1)
-      [1]
+      iex> Leet.AlienKaraoke.prepend({[], MapSet.new(), 0}, 1)
+      {[1], MapSet.new([1]), 1}
   """
-  def prepend(list, id) do
-    [id | list]
+  def prepend({list, hash, len}, id) do
+    {[id | list], MapSet.put(hash, id), len + 1}
   end
 end
