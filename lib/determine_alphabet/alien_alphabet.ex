@@ -17,109 +17,180 @@ defmodule Leet.AlienAlphabet do
       []
 
       iex> Leet.AlienAlphabet.order(["car", "cart", "dog", "dot", "zebra"])
-      ["c", "g", "t", "d", "z", "a", "o", "r"]
+      ["c", "d", "z", "g", "t", "a", "o", "e", "r", "b"]
+
+      iex> Leet.AlienAlphabet.order(["cat", "cog", "dog", "dot"])
+      ["c", "d", "a", "o", "g", "t"]
   """
   def order(word_list) do
-    word_count = length(word_list)
-
     words =
-      word_list
-      |> IO.inspect(label: "words")
-      |> Enum.map(&String.trim/1)
-      |> Enum.map(&String.downcase/1)
-      |> Enum.map(&String.graphemes/1)
+      clean_words(word_list)
 
     alpha =
-      0..(word_count - 2)
-      |> Enum.map(fn idx ->
-        word_diff(Enum.at(words, idx), Enum.at(words, idx + 1))
-      end)
-      |> IO.inspect(label: "word_diff")
-      |> Enum.sort_by(&elem(&1, 1))
-      |> Enum.map(&elem(&1, 0))
-      |> Enum.reduce([], fn lo, acc -> acc ++ lo end)
-      |> Enum.dedup()
+      words
+      |> graph_letters()
+      |> get_edges()
+      |> unpack_edges()
 
-    if length(alpha) == MapSet.size(MapSet.new(alpha)) do
-      alpha
-    else
-      []
-    end
-    |> IO.inspect(label: "alpha")
+    if length(alpha) == MapSet.size(MapSet.new(alpha)), do: alpha, else: []
   end
 
   @doc """
-  Return diff of letters in order of word index and when it happened
+  Ensure all words are "same"
 
   ## Examples
+      iex> Leet.AlienAlphabet.clean_words(["WRt  "])
+      ["wrt"]
 
-      iex> Leet.AlienAlphabet.word_diff(["w", "r", "t"], ["w", "r", "f"])
-      {["t", "f"], 2}
-
-      iex> Leet.AlienAlphabet.word_diff(["w", "r", "f"], ["e", "r"])
-      {["w", "e"], 0}
-
-      iex> Leet.AlienAlphabet.word_diff(["w", "r"], ["w", "r", "f"])
-      {["r", "f"], 2}
-
-      iex> Leet.AlienAlphabet.word_diff(["w", "r"], ["w", "r", "f", "b"])
-      {["r", "f", "b"], 2}
+      iex> Leet.AlienAlphabet.clean_words(["z", "X"])
+      ["z", "x"]
   """
-  def word_diff(word1, word2) do
-    len1 = length(word1)
-    len2 = length(word2)
-    min_len = min(len1, len2)
-
-    diff_idxs =
-      0..(min_len - 1)
-      |> Enum.drop_while(fn idx ->
-        is_same_letter?(word1, word2, idx)
-      end)
-
-    cond do
-      length(diff_idxs) > 0 ->
-        diff_idx = hd(diff_idxs)
-        {[Enum.at(word1, diff_idx, ""), Enum.at(word2, diff_idx, "")], diff_idx}
-
-      len1 == len2 ->
-        # no differences...
-        []
-
-      true ->
-        max_len = max(len1, len2)
-        {[Enum.at(word1, min_len - 1, "") | Enum.slice(word2, min_len..(max_len - 1))], min_len}
-    end
+  def clean_words(words) do
+    words
+    |> Enum.map(&String.downcase/1)
+    |> Enum.map(&String.trim/1)
   end
 
   @doc """
-  Return if the letter at the index in both words is the same
+  Graph letters at the level requested
 
   ## Examples
+      iex> Leet.AlienAlphabet.graph_letters(["z", "x"], 0)
+      [
+        {"z", []},
+        {"x", []}
+      ]
 
-      iex> Leet.AlienAlphabet.is_same_letter?(["a"], ["a"], 0)
-      true
-
-      iex> Leet.AlienAlphabet.is_same_letter?(["a", "b"], ["a", "b"], 1)
-      true
-
-      iex> Leet.AlienAlphabet.is_same_letter?(["a"], ["b"], 0)
-      false
-
-      iex> Leet.AlienAlphabet.is_same_letter?(["a", "a"], ["a", "b"], 1)
-      false
-
-      iex> Leet.AlienAlphabet.is_same_letter?(["a"], ["a", "b"], 1)
-      false
-
-      iex> Leet.AlienAlphabet.is_same_letter?(["a"], ["a", "b"], 3)
-      nil
+      iex> Leet.AlienAlphabet.graph_letters(["cat", "cog", "dog", "dot"], 0)
+      [
+        {
+          "c",
+          [
+            {
+              "a",
+              [
+                {"t", []}
+              ]
+            },
+            {
+              "o",
+              [
+                {"g", []}
+              ]
+            }
+          ]
+        },
+        {
+          "d",
+          [
+            {
+              "o",
+              [
+                {"g", []},
+                {"t", []}
+              ]
+            }
+          ]
+        }
+      ]
   """
-  def is_same_letter?(word1, word2, index) do
-    case {Enum.at(word1, index, ""), Enum.at(word2, index, "")} do
-      {"", ""} -> nil
-      {"", _} -> false
-      {_, ""} -> false
-      {l1, l2} -> l1 == l2
-    end
+  def graph_letters(words, index \\ 0) do
+    words
+    |> Enum.map(&String.at(&1, index))
+    |> Enum.dedup()
+    |> Enum.map(fn letter ->
+      # get child letters
+      children =
+        words
+        |> Enum.filter(&(String.at(&1, index) == letter && String.length(&1) > index + 1))
+        |> graph_letters(index + 1)
+
+      {letter, children}
+    end)
+  end
+
+  @doc """
+  Graph letters at the level requested
+
+  ## Examples
+      iex> Leet.AlienAlphabet.get_edges([{"c", [{"a", [{"t", []}]}, {"o", [{"g", []}]}]}, {"d", [{"o", [{"g", []}, {"t", []}]}]}])
+      [
+        {0, ["c", "d"]},
+        {1, ["a", "o"]},
+        {2, ["t"]},
+        {2, ["g"]},
+        {1, ["o"]},
+        {2, ["g", "t"]}
+      ]
+
+      iex> Leet.AlienAlphabet.get_edges([{"a", [{"t", []}]}, {"o", [{"g", []}]}], 1)
+      [{1, ["a", "o"]}, {2, ["t"]}, {2, ["g"]}]
+
+      iex> Leet.AlienAlphabet.get_edges([{"t", []}], 2)
+      [{2, ["t"]}]
+  """
+  def get_edges(graph, level \\ 0) do
+    current_level =
+      {
+        level,
+        Enum.map(graph, &elem(&1, 0))
+      }
+
+    next_level =
+      graph
+      |> Enum.map(&elem(&1, 1))
+      |> Enum.map(&get_edges(&1, level + 1))
+
+    ([current_level] ++ next_level)
+    |> List.flatten()
+    |> Enum.filter(fn {_, l} -> length(l) > 0 end)
+  end
+
+  @doc """
+  Trace the edges and accumulate letters in the order seen
+
+  ## Examples
+      iex> Leet.AlienAlphabet.unpack_edges(
+      ...>  [
+      ...>    {0, ["c", "d"]},
+      ...>    {1, ["a", "o"]},
+      ...>    {2, ["t"]},
+      ...>    {2, ["g"]},
+      ...>    {1, ["o"]},
+      ...>    {2, ["g", "t"]}
+      ...>  ]
+      ...> )
+      ["c", "d", "a", "o", "g", "t"]
+
+      iex> Leet.AlienAlphabet.unpack_edges([{1, ["a", "o"]}, {2, ["t"]}, {2, ["g"]}])
+      ["a", "o", "t", "g"]
+
+      iex> Leet.AlienAlphabet.unpack_edges([{2, ["t"]}])
+      ["t"]
+  """
+  def unpack_edges(edges) do
+    edges
+    |> Enum.sort_by(&{-length(elem(&1, 1)), elem(&1, 0)})
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.reduce(
+      [],
+      fn edge, acc ->
+        edge_size = length(edge)
+        letters_seen = MapSet.new(acc)
+
+        cond do
+          edge_size > 1 ->
+            acc ++ edge
+
+          hd(edge) in letters_seen ->
+            acc
+
+          true ->
+            acc ++ edge
+        end
+      end
+    )
+    |> List.flatten()
+    |> Enum.dedup()
   end
 end
