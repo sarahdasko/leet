@@ -52,9 +52,9 @@ defmodule Leet.AssignCourtsTest do
     assert Leet.AssignCourts.assign_courts(@requests) == @court_bookings
   end
 
-  test "get_unassiged_requests" do
+  test "get_unassigned_requests" do
     {assigned, remaining} = {Enum.take(@requests, 2), Enum.drop(@requests, 2)}
-    assert Leet.AssignCourts.get_unassiged_requests(assigned, @requests) == remaining
+    assert Leet.AssignCourts.get_unassigned_requests(assigned, @requests) == remaining
   end
 
   test "conflicts" do

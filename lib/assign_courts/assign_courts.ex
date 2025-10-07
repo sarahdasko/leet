@@ -94,8 +94,8 @@ defmodule Leet.AssignCourts do
     |> Enum.max()
   end
 
-  @spec get_unassiged_requests(list(map()), list(map())) :: list(map())
-  def get_unassiged_requests(assigned_reqs, reqs) do
+  @spec get_unassigned_requests(list(map()), list(map())) :: list(map())
+  def get_unassigned_requests(assigned_reqs, reqs) do
     assigned_ids = MapSet.new(assigned_reqs, & &1.id)
 
     Enum.reject(reqs, fn r -> MapSet.member?(assigned_ids, r.id) end)
